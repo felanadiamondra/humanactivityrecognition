@@ -1,8 +1,11 @@
+from msilib import sequence
 from absl import logging #Tensorflow and TF-Hub modules
 import tensorflow as tf
 import tensorflow_hub as hub
 from tensorflow_docs.vis import embed
 logging.set_verbosity(logging.ERROR)
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 # importing som modules to help reading the UCF101 dataset
 import random
@@ -18,7 +21,7 @@ from IPython import display
 from urllib import request # requires python3
 
 # Fonction d'assistance pour l'ensemble de données UCF101
-UCF_ROOT  = "https://www.crccv.ucf.edu/THUMOS14/UCFUCF101/UCF101/"
+UCF_ROOT  = "https://www.crcv.ucf.edu/THUMOS14/UCF101/UCF101/"
 _VIDEO_LIST = None
 _CACHE_DIR = tempfile.mkdtemp()
 
@@ -38,8 +41,8 @@ def fetch_ucf_video(video):
     cache_path = os.path.join(_CACHE_DIR, video)
     if not os.path.exists(cache_path):
         urlpath = request.urljoin(UCF_ROOT, video)
-        print("Fetchin %s => %s" (urlpath, cache_path))
-        data = request.urlopen(urlpath, context= unverified_contect).read()
+        print("Fetchin %s => %s", urlpath)
+        data = request.urlopen(urlpath, context= unverified_context).read()
         open(cache_path, "wb").write(data)
     return cache_path
 
@@ -78,3 +81,40 @@ KINETICS_URL = "https://raw.githubusercontent.com/deepmind/kinetics-i3d/master/d
 with request.urlopen(KINETICS_URL) as obj:
   labels = [line.decode("utf-8").strip() for line in obj.readlines()]
 print("Found %d labels." % len(labels))
+
+#Get the list of videos in the dataset.
+ucf_videos = list_ucf_videos()
+categories = {}
+for video in ucf_videos:
+    category = video[2:-12]
+    if category not in categories:
+        categories[category] = []
+    categories[category].append(video)
+print("Found %d videos in %d categories" %(len(ucf_videos), len(categories)))
+
+for category, sequences in categories.items():
+    summary = ", ".join(map(str, sequences[:2])) #using map to transforming every value in nested_tuples, allowing join to concatenate all of the tuple value
+    print("%-20s %4d videos (%s, ...)" % (category, len(sequences), summary))
+
+# Get a sample cricket video.
+video_path = fetch_ucf_video("v_CricketShot_g04_c02.avi")
+sample_video = load_video(video_path)
+sample_video.shape
+# i3d = hub.load("https://tfhub.dev/deepmind/i3d-kinetics-400/1").signatures['default']
+hub_url = "https://tfhub.dev/deepmind/i3d-kinetics-400/1"
+model = hub.load(hub_url)
+
+print(model.signatures.keys())
+
+# def predict(sample_video):
+#   # Add a batch axis to the sample video.
+#   model_input = tf.constant(sample_video, dtype=tf.float32)[tf.newaxis, ...]
+
+#   logits = i3d(model_input)['default'][0]
+#   probabilities = tf.nn.softmax(logits)
+
+#   print("Top 5 actions:")
+#   for i in np.argsort(probabilities)[::-1][:5]:
+#     print(f"  {labels[i]:22}: {probabilities[i] * 100:5.2f}%")
+
+# predict(sample_video)
